@@ -1,5 +1,9 @@
 # Texas Hold'em Poker Frontend
 
+<p align="center">
+  <img src="public/logo.svg" alt="Texas Hold'em Poker Logo" width="200">
+</p>
+
 A Texas Hold'em poker game frontend application built with Vue 3 + Vite, featuring complete game functionality and excellent user experience.
 
 ## Features

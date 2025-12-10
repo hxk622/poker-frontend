@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <!-- 背景圆 -->
+  <circle cx="100" cy="100" r="95" fill="#2c3e50" />
+  
+  <!-- 扑克牌装饰 -->
+  <!-- 红心A -->
+  <rect x="50" y="50" width="30" height="45" rx="3" fill="#ffffff" stroke="#e74c3c" stroke-width="2" />
+  <text x="55" y="65" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#e74c3c">A</text>
+  <path d="M65 75 C60 70, 55 75, 60 85 C65 75, 70 70, 65 75 Z" fill="#e74c3c" />
+  <path d="M65 85 C60 90, 55 85, 60 75 C65 85, 70 90, 65 85 Z" fill="#e74c3c" />
+  
+  <!-- 黑桃K -->
+  <rect x="120" y="50" width="30" height="45" rx="3" fill="#ffffff" stroke="#34495e" stroke-width="2" />
+  <text x="125" y="65" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#34495e">K</text>
+  <path d="M135 75 C130 72, 125 75, 130 85 C135 75, 140 72, 135 75 Z" fill="#34495e" />
+  <path d="M135 75 C135 78, 135 82, 135 85" fill="none" stroke="#34495e" stroke-width="2" />
+  
+  <!-- 梅花Q -->
+  <rect x="50" y="105" width="30" height="45" rx="3" fill="#ffffff" stroke="#27ae60" stroke-width="2" />
+  <text x="55" y="120" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#27ae60">Q</text>
+  <circle cx="65" cy="130" r="5" fill="#27ae60" />
+  <circle cx="58" cy="123" r="3" fill="#27ae60" />
+  <circle cx="72" cy="123" r="3" fill="#27ae60" />
+  <circle cx="58" cy="137" r="3" fill="#27ae60" />
+  <circle cx="72" cy="137" r="3" fill="#27ae60" />
+  
+  <!-- 方块J -->
+  <rect x="120" y="105" width="30" height="45" rx="3" fill="#ffffff" stroke="#f39c12" stroke-width="2" />
+  <text x="125" y="120" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#f39c12">J</text>
+  <rect x="130" y="125" width="10" height="10" fill="#f39c12" />
+  <rect x="135" y="120" width="10" height="10" fill="#f39c12" />
+  <rect x="135" y="130" width="10" height="10" fill="#f39c12" />
+  
+  <!-- 文字 -->
+  <text x="100" y="170" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="middle">Texas Hold'em</text>
+  <text x="100" y="185" font-family="Arial, sans-serif" font-size="12" fill="#ecf0f1" text-anchor="middle">Poker Game</text>
+</svg>
