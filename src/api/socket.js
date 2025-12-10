@@ -1,11 +1,14 @@
-import { io } from 'socket.io-client';
-
-// 创建Socket.IO实例
+// 创建原生WebSocket服务实例
 class SocketService {
   constructor() {
     this.socket = null;
     this.isConnected = false;
     this.eventHandlers = {};
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 5;
+    this.reconnectDelay = 1000;
+    // 根据后端配置修改WebSocket连接地址
+    this.url = 'ws://localhost:3000';
   }
 
   // 连接到服务器
@@ -17,101 +20,111 @@ class SocketService {
     // 获取token
     const token = localStorage.getItem('token');
 
-    // 创建连接
-    this.socket = io('http://localhost:3000', {
-      auth: {
-        token
-      },
-      transports: ['websocket'],
-      timeout: 10000
-    });
+    try {
+      // 创建连接，将token作为sec-websocket-protocol头传递
+      this.socket = new WebSocket(this.url, [token]);
 
-    // 连接成功事件
-    this.socket.on('connect', () => {
-      console.log('Socket.IO连接成功');
-      this.isConnected = true;
-    });
+      // 连接成功事件
+      this.socket.onopen = () => {
+        console.log('WebSocket连接成功');
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+      };
 
-    // 连接错误事件
-    this.socket.on('connect_error', (error) => {
-      console.error('Socket.IO连接错误:', error);
+      // 接收消息事件
+      this.socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          const eventName = message.type;
+          const data = message.data;
+          
+          // 触发对应事件的处理函数
+          if (this.eventHandlers[eventName]) {
+            this.eventHandlers[eventName].forEach(callback => {
+              callback(data);
+            });
+          }
+        } catch (error) {
+          console.error('解析WebSocket消息错误:', error);
+        }
+      };
+
+      // 连接错误事件
+      this.socket.onerror = (error) => {
+        console.error('WebSocket连接错误:', error);
+        this.isConnected = false;
+      };
+
+      // 断开连接事件
+      this.socket.onclose = (event) => {
+        console.log('WebSocket断开连接:', event.code, event.reason);
+        this.isConnected = false;
+        
+        // 尝试重连
+        this.attemptReconnect();
+      };
+    } catch (error) {
+      console.error('创建WebSocket连接失败:', error);
       this.isConnected = false;
-    });
+    }
+  }
 
-    // 断开连接事件
-    this.socket.on('disconnect', (reason) => {
-      console.log('Socket.IO断开连接:', reason);
-      this.isConnected = false;
-    });
-
-    // 重连事件
-    this.socket.on('reconnect', (attemptNumber) => {
-      console.log('Socket.IO重连成功，尝试次数:', attemptNumber);
-      this.isConnected = true;
-    });
-
-    // 重连失败事件
-    this.socket.on('reconnect_failed', () => {
-      console.error('Socket.IO重连失败');
-      this.isConnected = false;
-    });
-
-    // 重连尝试事件
-    this.socket.on('reconnect_attempt', (attemptNumber) => {
-      console.log('Socket.IO重连尝试，次数:', attemptNumber);
-    });
+  // 尝试重连
+  attemptReconnect() {
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      console.log(`WebSocket尝试重连，次数: ${this.reconnectAttempts}`);
+      
+      setTimeout(() => {
+        this.connect();
+      }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1));
+    } else {
+      console.error('WebSocket重连失败');
+    }
   }
 
   // 断开连接
   disconnect() {
     if (this.socket) {
-      this.socket.disconnect();
+      this.socket.close();
       this.socket = null;
       this.isConnected = false;
       this.eventHandlers = {};
+      this.reconnectAttempts = 0;
     }
   }
 
   // 发送事件
   emit(eventName, data) {
     if (this.socket && this.isConnected) {
-      this.socket.emit(eventName, data);
+      const message = {
+        type: eventName,
+        data
+      };
+      this.socket.send(JSON.stringify(message));
     } else {
-      console.error('Socket.IO未连接，无法发送事件:', eventName);
+      console.error('WebSocket未连接，无法发送事件:', eventName);
     }
   }
 
   // 监听事件
   on(eventName, callback) {
-    if (this.socket) {
-      // 保存事件处理函数
-      if (!this.eventHandlers[eventName]) {
-        this.eventHandlers[eventName] = [];
-      }
-      this.eventHandlers[eventName].push(callback);
-
-      // 注册事件监听
-      this.socket.on(eventName, callback);
+    // 保存事件处理函数
+    if (!this.eventHandlers[eventName]) {
+      this.eventHandlers[eventName] = [];
     }
+    this.eventHandlers[eventName].push(callback);
   }
 
   // 移除事件监听
   off(eventName, callback) {
-    if (this.socket) {
-      // 移除特定回调
+    if (this.eventHandlers[eventName]) {
       if (callback) {
-        this.socket.off(eventName, callback);
-        // 从事件处理函数列表中移除
-        if (this.eventHandlers[eventName]) {
-          this.eventHandlers[eventName] = this.eventHandlers[eventName].filter(handler => handler !== callback);
-        }
+        // 移除特定回调
+        this.eventHandlers[eventName] = this.eventHandlers[eventName].filter(handler => handler !== callback);
       } else {
         // 移除所有回调
-        this.socket.off(eventName);
-        // 清空事件处理函数列表
-        if (this.eventHandlers[eventName]) {
-          this.eventHandlers[eventName] = [];
-        }
+        this.eventHandlers[eventName] = [];
       }
     }
   }
@@ -121,9 +134,9 @@ class SocketService {
     return this.isConnected;
   }
 
-  // 获取Socket ID
-  getSocketId() {
-    return this.socket?.id;
+  // 获取Socket实例
+  getSocket() {
+    return this.socket;
   }
 }
 

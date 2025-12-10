@@ -259,16 +259,18 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, watch, onBeforeUnmount } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import gameApi from '../api/game';
 import { showToast, showConfirmDialog } from 'vant';
 import { getCurrentUser } from '../store/user';
+import socketService from '../api/socket';
 
 // 路由和参数
 const router = useRouter();
 const route = useRoute();
-const roomId = route.params.id;
+const gameId = route.params.id;
+const roomId = route.params.id; // 假设gameId和roomId相同
 
 // 当前用户信息
 const currentUser = getCurrentUser();
@@ -364,7 +366,7 @@ const setBetAmount = (amount) => {
 // 弃牌
 const fold = async () => {
   try {
-    await gameApi.action(roomId, 'fold');
+    await gameApi.playerAction(gameId, 'fold');
     // 更新游戏状态
   } catch (error) {
     console.error('弃牌失败:', error);
@@ -376,7 +378,7 @@ const fold = async () => {
 const checkOrCall = async () => {
   const action = canCheck.value ? 'check' : 'call';
   try {
-    await gameApi.action(roomId, action);
+    await gameApi.playerAction(gameId, action);
     // 更新游戏状态
   } catch (error) {
     console.error(action + '失败:', error);
@@ -392,7 +394,7 @@ const raise = async () => {
   }
   
   try {
-    await gameApi.action(roomId, 'raise', { amount: betAmount.value });
+    await gameApi.playerAction(gameId, 'raise', betAmount.value);
     // 更新游戏状态
   } catch (error) {
     console.error('加注失败:', error);
@@ -416,8 +418,11 @@ const sendChatMessage = async () => {
   chatInput.value = '';
   
   try {
-    // 发送到服务器
-    await gameApi.sendMessage(roomId, message.content);
+    // 通过WebSocket发送到服务器
+    socketService.emit('chat_message', {
+      message: message.content,
+      roomId: gameId
+    });
   } catch (error) {
     console.error('发送消息失败:', error);
     // 可以选择从本地移除失败的消息
@@ -442,7 +447,7 @@ const requestAiAnalysis = async () => {
   aiAnalysis.loading = true;
   try {
     // 调用API获取AI分析结果
-    const response = await gameApi.requestAiAnalysis(roomId, playerCards, gameState.communityCards);
+    const response = await gameApi.requestAiAnalysis(gameId, playerCards, gameState.communityCards);
     
     // 更新分析结果
     if (response && response.analysis) {
@@ -479,16 +484,48 @@ const requestAiAnalysis = async () => {
   }
 };
 
+// 更新玩家座位
+const updatePlayerSeats = (players) => {
+  // 清空所有座位
+  playerSeats.forEach(seat => {
+    seat.player = null;
+    seat.isActive = false;
+    seat.isCurrentPlayer = false;
+    seat.isDealer = false;
+    seat.isSmallBlind = false;
+    seat.isBigBlind = false;
+  });
+  
+  // 根据后端返回的玩家数据更新座位
+  players.forEach((player, index) => {
+    if (playerSeats[index]) {
+      playerSeats[index].player = player;
+      playerSeats[index].isActive = player.status === 'active';
+      playerSeats[index].isCurrentPlayer = player.isCurrentPlayer;
+      playerSeats[index].isDealer = player.isDealer;
+      playerSeats[index].isSmallBlind = player.isSmallBlind;
+      playerSeats[index].isBigBlind = player.isBigBlind;
+    }
+  });
+};
+
 // 初始化游戏
 const initGame = async () => {
   try {
-    const response = await gameApi.getGameState(roomId);
-    if (response && response.gameState) {
+    const response = await gameApi.getGameState(gameId);
+    if (response && response.data) {
       // 更新游戏状态
-      Object.assign(gameState, response.gameState);
+      Object.assign(gameState, response.data);
       
       // 更新玩家座位
-      // ...
+      if (response.data.players) {
+        updatePlayerSeats(response.data.players);
+      }
+      
+      // 如果有当前玩家手牌信息，更新手牌
+      if (response.data.playerCards) {
+        Object.assign(playerCards, response.data.playerCards);
+      }
       
       // 如果AI辅助启用且实时分析开启，请求AI分析
       if (aiAnalysis.enabled && aiAnalysis.realTime) {
@@ -504,13 +541,64 @@ const initGame = async () => {
 
 // 监听游戏状态变化
 const listenGameUpdates = () => {
-  // 实际项目中应该使用WebSocket监听游戏状态变化
-  // 这里使用定时器模拟游戏状态更新
-  const interval = setInterval(() => {
-    // 模拟游戏状态更新
-  }, 2000);
+  // 连接WebSocket
+  socketService.connect();
   
-  return () => clearInterval(interval);
+  // 加入游戏房间
+  socketService.emit('join_room', { roomId });
+  
+  // 监听游戏状态更新
+  socketService.on('game_state_update', (data) => {
+    console.log('收到游戏状态更新:', data);
+    // 根据后端发送的游戏状态直接更新
+    Object.assign(gameState, data);
+    
+    // 如果有玩家座位信息，更新玩家座位
+    if (data.players) {
+      // 根据后端返回的玩家数据更新座位
+      updatePlayerSeats(data.players);
+    }
+    
+    // 如果有当前玩家手牌信息，更新手牌
+    if (data.playerCards) {
+      Object.assign(playerCards, data.playerCards);
+    }
+  });
+  
+  // 监听其他玩家加入
+  socketService.on('player_joined', (data) => {
+    console.log('玩家加入:', data);
+    showToast(`${data.username || '玩家'} 加入了游戏`);
+  });
+  
+  // 监听其他玩家离开
+  socketService.on('player_left', (data) => {
+    console.log('玩家离开:', data);
+    showToast(`${data.username || '玩家'} 离开了游戏`);
+  });
+  
+  // 监听聊天消息
+  socketService.on('chat_message', (data) => {
+    console.log('收到聊天消息:', data);
+    chatMessages.value.push({
+      senderId: data.userId,
+      username: data.username || '玩家',
+      content: data.message,
+      timestamp: data.timestamp
+    });
+  });
+  
+  // 监听游戏动作
+  socketService.on('game_action', (data) => {
+    console.log('收到游戏动作:', data);
+    // 可以在这里添加游戏动作的视觉反馈
+  });
+  
+  // 监听连接错误
+  socketService.on('error', (data) => {
+    console.error('WebSocket错误:', data);
+    showToast(`WebSocket错误: ${data.message || '未知错误'}`);
+  });
 };
 
 // 监听实时分析开关变化
@@ -542,11 +630,15 @@ watch(
 // 组件挂载
 onMounted(() => {
   initGame();
-  const cleanup = listenGameUpdates();
-  
-  return () => {
-    cleanup();
-  };
+  listenGameUpdates();
+});
+
+// 组件卸载前断开WebSocket连接
+onBeforeUnmount(() => {
+  // 离开游戏房间
+  socketService.emit('leave_room', { roomId });
+  // 断开WebSocket连接
+  socketService.disconnect();
 });
 </script>
 

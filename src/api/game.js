@@ -15,8 +15,10 @@ const gameApi = {
   // 玩家行动（下注、跟注、弃牌等）
   playerAction: (gameId, actionType, amount) => {
     return api.post(`/games/${gameId}/action`, {
-      actionType,
-      amount
+      action: {
+        action_type: actionType,
+        amount
+      }
     });
   },
 
