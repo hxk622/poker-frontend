@@ -1,97 +1,97 @@
-# 德州扑克前端应用
+# Texas Hold'em Poker Frontend
 
-一个基于 Vue 3 + Vite 开发的德州扑克游戏前端应用，具备完整的游戏功能和良好的用户体验。
+A Texas Hold'em poker game frontend application built with Vue 3 + Vite, featuring complete game functionality and excellent user experience.
 
-## 功能特性
+## Features
 
-- **用户认证系统**：支持注册、登录功能
-- **房间管理**：创建、加入游戏房间
-- **实时游戏**：完整的德州扑克游戏逻辑
-- **实时通信**：WebSocket 支持，实现实时游戏状态同步
-- **聊天系统**：房间内实时聊天功能
-- **AI辅助**：智能分析手牌强度和推荐操作
-- **响应式设计**：适配不同屏幕尺寸的移动设备
+- **User Authentication System**: Support for registration and login functionality
+- **Room Management**: Create and join game rooms
+- **Real-time Gameplay**: Complete Texas Hold'em poker game logic
+- **Real-time Communication**: WebSocket support for real-time game state synchronization
+- **Chat System**: Real-time chat functionality within rooms
+- **AI Assistance**: Intelligent hand strength analysis and recommended actions
+- **Responsive Design**: Adapted for mobile devices with different screen sizes
 
-## 技术栈
+## Tech Stack
 
-- **Vue 3**：使用 Composition API 和 `<script setup>`
-- **Vite**：快速的前端构建工具
-- **Pinia**：状态管理
-- **Vue Router**：路由管理
-- **Vant**：移动端 UI 组件库
-- **Axios**：HTTP 请求
-- **WebSocket**：实时通信
+- **Vue 3**: Using Composition API and `<script setup>`
+- **Vite**: Fast frontend build tool
+- **Pinia**: State management
+- **Vue Router**: Routing management
+- **Vant**: Mobile UI component library
+- **Axios**: HTTP requests
+- **WebSocket**: Real-time communication
 
-## 项目结构
+## Project Structure
 
 ```
 src/
-├── api/           # API 请求封装
-├── assets/        # 静态资源
-├── components/    # 组件
-├── plugins/       # 插件配置
-├── router/        # 路由配置
-├── stores/        # 状态管理
-├── views/         # 页面组件
-├── App.vue        # 根组件
-├── main.js        # 入口文件
-└── style.css      # 全局样式
+├── api/           # API request encapsulation
+├── assets/        # Static resources
+├── components/    # Components
+├── plugins/       # Plugin configurations
+├── router/        # Router configurations
+├── stores/        # State management
+├── views/         # Page components
+├── App.vue        # Root component
+├── main.js        # Entry file
+└── style.css      # Global styles
 ```
 
-## 安装和运行
+## Installation and Running
 
-### 安装依赖
+### Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 开发环境运行
+### Run in Development Environment
 
 ```bash
 npm run dev
 ```
 
-### 生产环境构建
+### Build for Production Environment
 
 ```bash
 npm run build
 ```
 
-## 核心功能说明
+## Core Functionality
 
-### 用户认证
-- 支持用户名/邮箱注册
-- 密码加密存储
-- JWT 认证机制
+### User Authentication
+- Support for username/email registration
+- Password encrypted storage
+- JWT authentication mechanism
 
-### 游戏房间
-- 创建房间，设置盲注、玩家数量等参数
-- 浏览和加入现有房间
-- 房间状态实时更新
+### Game Rooms
+- Create rooms with customizable parameters like blinds and player count
+- Browse and join existing rooms
+- Real-time room status updates
 
-### 游戏逻辑
-- 完整的德州扑克游戏流程
-- 玩家行动（弃牌、跟注、加注、全下）
-- 牌局结算和筹码分配
+### Game Logic
+- Complete Texas Hold'em poker game flow
+- Player actions (Fold, Call, Raise, All-in)
+- Hand settlement and chip distribution
 
-### 实时通信
-- 使用 WebSocket 实现游戏状态实时同步
-- 玩家行动即时广播
-- 房间聊天功能
+### Real-time Communication
+- Game state real-time synchronization using WebSocket
+- Instant player action broadcasting
+- Room chat functionality
 
-### AI 辅助
-- 手牌强度分析
-- 获胜概率计算
-- 操作建议
-- 实时分析开关控制
+### AI Assistance
+- Hand strength analysis
+- Winning probability calculation
+- Action recommendations
+- Real-time analysis toggle control
 
-## 移动端适配
+## Mobile Adaptation
 
-应用采用响应式设计，主要适配以下尺寸：
-- 桌面端：1024px 以上
-- 平板端：768px - 1024px
-- 移动端：480px 以下
+The application adopts responsive design, mainly adapting to the following sizes:
+- Desktop: 1024px and above
+- Tablet: 768px - 1024px
+- Mobile: 480px and below
 
 ## License
 
