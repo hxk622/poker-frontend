@@ -76,6 +76,7 @@ import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import userApi from '../api/user';
 import { showToast } from 'vant';
+import { logger } from '../utils/logger';
 
 // 路由实例
 const router = useRouter();
@@ -97,62 +98,75 @@ const loading = ref(false);
 // 处理注册
 const handleRegister = async () => {
   try {
+    logger.info('开始注册尝试', { username: registerForm.username, email: registerForm.email });
+    
     // 表单验证
     if (!registerForm.username.trim()) {
       showToast('请输入用户名');
+      logger.warn('注册验证失败：未输入用户名');
       return;
     }
     if (registerForm.username.length < 6 || registerForm.username.length > 20) {
       showToast('用户名长度必须在6-20位之间');
+      logger.warn('注册验证失败：用户名长度不符合要求', { username: registerForm.username });
       return;
     }
     if (!registerForm.email.trim()) {
       showToast('请输入邮箱');
+      logger.warn('注册验证失败：未输入邮箱');
       return;
     }
     if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}$/.test(registerForm.email)) {
       showToast('邮箱格式不正确');
+      logger.warn('注册验证失败：邮箱格式不正确', { email: registerForm.email });
       return;
     }
     if (!registerForm.password.trim()) {
       showToast('请输入密码');
+      logger.warn('注册验证失败：未输入密码');
       return;
     }
     if (registerForm.password.length < 6) {
       showToast('密码长度不能少于6位');
+      logger.warn('注册验证失败：密码长度不足');
       return;
     }
     if (registerForm.password !== registerForm.confirmPassword) {
       showToast('两次输入的密码不一致');
+      logger.warn('注册验证失败：两次输入的密码不一致');
       return;
     }
 
     // 设置加载状态
     loading.value = true;
+    logger.debug('注册验证通过，准备调用API');
 
     // 调用注册API
-    const response = await userApi.register({
-      username: registerForm.username,
-      email: registerForm.email,
-      password: registerForm.password
+    const response = await userApi.register({ 
+      username: registerForm.username, 
+      email: registerForm.email, 
+      password: registerForm.password 
     });
 
     // 注册成功
-    if (response && response.success) {
+    if (response && response.message) {
       showToast('注册成功');
+      logger.info('注册成功', { username: registerForm.username, email: registerForm.email });
       // 跳转到登录页面
       setTimeout(() => {
         router.push('/login');
       }, 1500);
     } else {
       showToast(response?.message || '注册失败');
+      logger.warn('注册失败：服务器返回无效响应', { response });
     }
   } catch (error) {
-    console.error('注册失败:', error);
+    logger.error('注册失败', { error, username: registerForm.username, email: registerForm.email });
     showToast('注册失败，请稍后重试');
   } finally {
     // 重置加载状态
     loading.value = false;
+    logger.debug('注册流程结束');
   }
 };
 </script>

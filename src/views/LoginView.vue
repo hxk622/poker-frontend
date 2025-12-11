@@ -57,6 +57,7 @@ import { useRouter } from 'vue-router';
 import { useUserStore } from '../stores/user';
 import userApi from '../api/user';
 import { showToast } from 'vant';
+import { logger } from '../utils/logger';
 
 // 路由实例
 const router = useRouter();
@@ -80,18 +81,48 @@ const handleLogin = async () => {
     // 表单验证
     if (!loginForm.username.trim()) {
       showToast('请输入账号');
+      logger.warn('登录尝试：未输入账号');
       return;
     }
     if (!loginForm.password.trim()) {
       showToast('请输入密码');
+      logger.warn('登录尝试：未输入密码');
       return;
     }
 
     // 设置加载状态
     loading.value = true;
+    
+    logger.info('开始登录尝试', { account: loginForm.username });
+
+    // 根据用户输入的内容判断类型
+    let loginData = {
+      password: loginForm.password
+    };
+
+    const account = loginForm.username.trim();
+    let accountType = '';
+    
+    // 判断是邮箱、手机号还是用户名
+    if (account.includes('@')) {
+      // 邮箱
+      loginData.email = account;
+      accountType = 'email';
+      logger.debug('登录尝试：使用邮箱登录', { email: account });
+    } else if (/^1[3-9]\d{9}$/.test(account)) {
+      // 手机号（简单验证）
+      loginData.phone = account;
+      accountType = 'phone';
+      logger.debug('登录尝试：使用手机号登录', { phone: account });
+    } else {
+      // 用户名 - 支持用户名登录
+      loginData.username = account;
+      accountType = 'username';
+      logger.debug('登录尝试：使用用户名登录', { username: account });
+    }
 
     // 调用登录API
-    const response = await userApi.login(loginForm);
+    const response = await userApi.login(loginData);
 
     // 登录成功
     if (response && response.user && response.token) {
@@ -101,12 +132,20 @@ const handleLogin = async () => {
       showToast('登录成功');
       // 跳转到首页
       router.push('/');
+      
+      logger.info('登录成功', { userId: response.user.id, username: response.user.username });
     } else {
       showToast('登录失败，请检查账号密码');
+      logger.warn('登录失败：服务器返回无效响应');
     }
   } catch (error) {
     console.error('登录失败:', error);
-    showToast('登录失败，请稍后重试');
+    // 处理API错误信息
+    if (error.response && error.response.data && error.response.data.error) {
+      showToast(error.response.data.error);
+    } else {
+      showToast('登录失败，请稍后重试');
+    }
   } finally {
     // 重置加载状态
     loading.value = false;

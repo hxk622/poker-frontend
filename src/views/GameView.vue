@@ -54,6 +54,15 @@
             <div v-if="seat.isDealer" class="dealer-badge">D</div>
             <div v-if="seat.isSmallBlind" class="blind-badge small">SB</div>
             <div v-if="seat.isBigBlind" class="blind-badge big">BB</div>
+            <!-- 私聊按钮 -->
+            <div 
+              v-if="seat.player.id !== currentUserId" 
+              class="private-chat-button"
+              @click="startPrivateChat(seat.player.id, seat.player.username)"
+              title="开始私聊"
+            >
+              💬
+            </div>
           </div>
         </div>
       </div>
@@ -171,25 +180,55 @@
         </van-tab>
         <van-tab title="聊天">
           <div class="chat-section">
+            <!-- 聊天类型切换 -->
+            <div class="chat-type-tabs">
+              <van-button 
+                size="small" 
+                :type="chatStore.chatType === 'room' ? 'primary' : 'default'" 
+                @click="chatStore.setChatType('room')"
+              >
+                房间聊天
+              </van-button>
+              <van-button 
+                size="small" 
+                :type="chatStore.chatType === 'private' ? 'primary' : 'default'" 
+                :disabled="!chatStore.privateChatUserId"
+                @click="chatStore.setChatType('private')"
+              >
+                私聊
+              </van-button>
+            </div>
+            
+            <!-- 聊天消息列表 -->
             <div class="chat-messages">
               <div
-                v-for="(message, index) in chatMessages"
-                :key="index"
+                v-for="(message, index) in chatStore.getLatestMessages(50)"
+                :key="message.id"
                 class="chat-message"
-                :class="{ 'own-message': message.senderId === currentUserId }"
+                :class="{
+                  'own-message': message.senderId === currentUserId,
+                  'private-message': message.type === 'private'
+                }"
               >
                 <div class="message-content">
-                  <div class="message-sender">{{ message.username }}</div>
+                  <div class="message-header">
+                    <div class="message-sender">{{ message.senderName }}</div>
+                    <div class="message-time">{{ new Date(message.timestamp).toLocaleTimeString() }}</div>
+                  </div>
                   <div class="message-text">{{ message.content }}</div>
+                  <div v-if="message.type === 'private'" class="message-type-indicator">私聊</div>
                 </div>
               </div>
             </div>
+            
+            <!-- 聊天输入框 -->
             <div class="chat-input">
               <van-field
-                v-model="chatInput"
-                placeholder="输入消息..."
+                v-model="chatStore.inputMessage"
+                :placeholder="chatStore.chatType === 'private' ? '输入私聊消息...' : '输入房间消息...'"
                 right-icon="send"
                 @click-right-icon="sendChatMessage"
+                @keyup.enter="sendChatMessage"
               />
             </div>
           </div>
@@ -263,7 +302,8 @@ import { ref, reactive, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router';
 import gameApi from '../api/game';
 import { showToast, showConfirmDialog } from 'vant';
-import { getCurrentUser } from '../store/user';
+import { useUserStore } from '../stores/user';
+import { useChatStore } from '../stores/chat';
 import socketService from '../api/socket';
 
 // 路由和参数
@@ -273,8 +313,9 @@ const gameId = route.params.id;
 const roomId = route.params.id; // 假设gameId和roomId相同
 
 // 当前用户信息
-const currentUser = getCurrentUser();
-const currentUserId = currentUser?.id;
+const userStore = useUserStore();
+const currentUser = computed(() => userStore.userInfo);
+const currentUserId = computed(() => userStore.getUserId);
 
 // 游戏状态
 const gameState = reactive({
@@ -328,8 +369,7 @@ const aiAnalysis = reactive({
 });
 
 // 聊天功能
-const chatMessages = ref([]);
-const chatInput = ref('');
+const chatStore = useChatStore();
 const activeTab = ref(0);
 
 // 下注相关
@@ -404,31 +444,56 @@ const raise = async () => {
 
 // 发送聊天消息
 const sendChatMessage = async () => {
-  if (!chatInput.value.trim()) return;
-  
-  const message = {
-    senderId: currentUserId,
-    username: currentUser.username,
-    content: chatInput.value.trim(),
-    timestamp: new Date().toISOString()
-  };
-  
-  // 先添加到本地
-  chatMessages.value.push(message);
-  chatInput.value = '';
+  if (!chatStore.inputMessage.trim()) return;
   
   try {
-    // 通过WebSocket发送到服务器
-    socketService.emit('chat_message', {
-      message: message.content,
-      roomId: gameId
-    });
+    let message;
+    // 根据当前聊天类型发送不同的消息
+    if (chatStore.chatType === 'room') {
+      // 发送房间消息
+      message = chatStore.sendRoomMessage(
+        chatStore.inputMessage.trim(),
+        currentUserId.value,
+        currentUser.value.username
+      );
+      
+      // 通过WebSocket发送到服务器
+      socketService.emit('chat_message', {
+        message: message.content,
+        roomId: gameId
+      });
+    } else {
+      // 发送私聊消息
+      message = chatStore.sendPrivateMessage(
+        chatStore.inputMessage.trim(),
+        currentUserId.value,
+        currentUser.value.username,
+        chatStore.privateChatUserId
+      );
+      
+      // 通过WebSocket发送到服务器
+      socketService.emit('chat_message', {
+        message: message.content,
+        roomId: gameId,
+        isPrivate: true,
+        recipientId: chatStore.privateChatUserId
+      });
+    }
+    
+    // 清空输入框
+    chatStore.clearInputMessage();
   } catch (error) {
     console.error('发送消息失败:', error);
-    // 可以选择从本地移除失败的消息
-    chatMessages.value.pop();
     showToast('发送消息失败');
   }
+};
+
+// 开始私聊
+const startPrivateChat = (userId, username) => {
+  chatStore.setChatType('private', userId);
+  // 可以显示一个提示或切换到聊天标签
+  showToast(`开始与${username}私聊`);
+  activeTab.value = 1; // 切换到聊天标签
 };
 
 // 切换AI辅助
@@ -580,11 +645,31 @@ const listenGameUpdates = () => {
   // 监听聊天消息
   socketService.on('chat_message', (data) => {
     console.log('收到聊天消息:', data);
-    chatMessages.value.push({
-      senderId: data.userId,
-      username: data.username || '玩家',
+    chatStore.addMessage({
+      type: data.isPrivate ? 'private' : 'room',
       content: data.message,
+      senderId: data.userId,
+      senderName: data.username || '玩家',
+      receiverId: data.recipientId,
       timestamp: data.timestamp
+    });
+  });
+  
+  // 监听聊天历史
+  socketService.on('chat_history', (data) => {
+    console.log('收到聊天历史:', data);
+    // 清空现有消息
+    chatStore.clearMessages();
+    // 添加历史消息
+    data.forEach(message => {
+      chatStore.addMessage({
+        type: message.isPrivate ? 'private' : 'room',
+        content: message.message,
+        senderId: message.userId,
+        senderName: message.username || '玩家',
+        receiverId: message.recipientId,
+        timestamp: message.timestamp
+      });
     });
   });
   
@@ -804,6 +889,73 @@ onBeforeUnmount(() => {
   
   .message-content {
     max-width: 85%;
+  }
+  
+  /* 聊天类型切换 */
+  .chat-type-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 0 5px;
+  }
+  
+  /* 私聊按钮 */
+  .private-chat-button {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 20px;
+    height: 20px;
+    background-color: rgba(25, 137, 250, 0.8);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: all 0.3s ease;
+  }
+  
+  .private-chat-button:hover {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  
+  /* 消息头部 */
+  .message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3px;
+  }
+  
+  /* 消息时间 */
+  .message-time {
+    font-size: 10px;
+    opacity: 0.7;
+  }
+  
+  /* 私聊消息样式 */
+  .private-message {
+    background-color: rgba(25, 137, 250, 0.1);
+    border-left: 3px solid #1989fa;
+  }
+  
+  /* 消息类型指示器 */
+  .message-type-indicator {
+    font-size: 9px;
+    color: #1989fa;
+    margin-top: 2px;
+  }
+  
+  /* 移动端适配 */
+  @media (max-width: 480px) {
+    .private-chat-button {
+      width: 15px;
+      height: 15px;
+      font-size: 10px;
+    }
   }
 }
 

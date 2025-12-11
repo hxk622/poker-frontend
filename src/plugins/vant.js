@@ -33,7 +33,7 @@ import {
   Collapse,
   CollapseItem,
   Picker,
-  DatetimePicker,
+  DatePicker,
   Calendar,
   Image,
   Lazyload,
@@ -93,7 +93,7 @@ export function registerVant(app) {
   app.use(Collapse);
   app.use(CollapseItem);
   app.use(Picker);
-  app.use(DatetimePicker);
+  app.use(DatePicker);
   app.use(Calendar);
   app.use(Image);
   app.use(Lazyload);

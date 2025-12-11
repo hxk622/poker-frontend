@@ -5,7 +5,7 @@ const routes = [
   {
     path: '/',
     name: 'Home',
-    component: () => import('../views/HomeView.vue'),
+    component: () => import('../views/RoomsView.vue'),
     meta: { requiresAuth: true }
   },
   {
@@ -53,6 +53,11 @@ const routes = [
     name: 'AiAssistant',
     component: () => import('../views/AiAssistantView.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/log-test',
+    name: 'LogTest',
+    component: () => import('../views/LogTestView.vue')
   }
 ];
 
